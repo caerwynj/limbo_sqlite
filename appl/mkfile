@@ -1,0 +1,3 @@
+sqlconnect.dis: sqlconnect.b
+	limbo sqlconnect.b
+

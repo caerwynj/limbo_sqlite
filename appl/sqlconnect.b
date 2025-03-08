@@ -9,7 +9,7 @@ Conn, Stmt: import sqlite;
 
 Sqlconnect:module{
 	init:fn(c:ref Draw->Context, argv: list of string);
-}
+};
 
 init(nil:ref Draw->Context, argv:list of string)
 {
@@ -34,7 +34,11 @@ init(nil:ref Draw->Context, argv:list of string)
 	rc = sqlite->step(stmt);
 	print("step %d\n", rc);
 	
-	print("column 0 %s\n", sqlite->column_text(stmt, 0));
+	s := sqlite->column_text(stmt, 0);
+	if (s != nil)
+		print("column 0 %s\n", s);
+	else
+		print("column 0 returns nil\n");
 	print("column 1 %s\n", sqlite->column_text(stmt, 1));
 
 	rc = sqlite->step(stmt);

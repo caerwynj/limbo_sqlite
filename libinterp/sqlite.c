@@ -46,8 +46,8 @@ Sqlite_open(void *fp)
 {
 	F_Sqlite_open *f;
 	Heap *h;
-	void *f;
 	XConn *conn;
+	void *r;
 	int rc;
 	char *path;
 	sqlite3 *db;
@@ -97,7 +97,7 @@ Sqlite_bind_big(void *fp)
 
 	f = fp;
 	stmt = checktype(f->stmt, TSqlite_Stmt, exBadStmt, 0);
-	*f->ret = sqlite3_bind_int64(stmt->stmt, f-n, f->v);
+	*f->ret = sqlite3_bind_int64(stmt->stmt, f->n, f->v);
 }
 
 
@@ -109,7 +109,7 @@ Sqlite_bind_int(void *fp)
 
 	f = fp;
 	stmt = checktype(f->stmt, TSqlite_Stmt, exBadStmt, 0);
-	*f->ret = sqlite3_bind_int(stmt->stmt, f-n, f->v);
+	*f->ret = sqlite3_bind_int(stmt->stmt, f->n, f->v);
 }
 
 void
@@ -120,7 +120,7 @@ Sqlite_bind_real(void *fp)
 
 	f = fp;
 	stmt = checktype(f->stmt, TSqlite_Stmt, exBadStmt, 0);
-	*f->ret = sqlite3_bind_double(stmt->stmt, f-n, f->v);
+	*f->ret = sqlite3_bind_double(stmt->stmt, f->n, f->v);
 }
 
 void
@@ -131,7 +131,7 @@ Sqlite_bind_text(void *fp)
 
 	f = fp;
 	stmt = checktype(f->stmt, TSqlite_Stmt, exBadStmt, 0);
-	*f->ret = sqlite3_bind_text(stmt->stmt, f-n, string2c(f->v), -1, NULL);
+	*f->ret = sqlite3_bind_text(stmt->stmt, f->n, string2c(f->v), -1, NULL);
 }
 
 void
@@ -172,10 +172,12 @@ Sqlite_column_text(void *fp)
 {
 	F_Sqlite_column_text *f;
 	XStmt *stmt;
+	char *text;
 
 	f = fp;
 	stmt = checktype(f->stmt, TSqlite_Stmt, exBadStmt, 0);
-	*f->ret = sqlite3_column_text(stmt->stmt, f->col);
+	text = sqlite3_column_text(stmt->stmt, f->col);
+	*f->ret = c2string(text, strlen(text));
 }
 
 void

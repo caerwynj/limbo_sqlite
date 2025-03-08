@@ -25,10 +25,10 @@ Sqlite: module {
 	step:fn(stmt: ref Stmt): int;
 	column_int:fn(stmt: ref Stmt, col: int): int;
 	column_bytes:fn(stmt: ref Stmt, col: int): int;
-	column_real:fn(stmt: ref Stmt, col: int): int;
-	column_big:fn(stmt: ref Stmt, col: int): int;
-	column_text:fn(stmt: ref Stmt, col: int): int;
-	column_blob:fn(stmt: ref Stmt, col: int): int;
+	column_real:fn(stmt: ref Stmt, col: int): real;
+	column_big:fn(stmt: ref Stmt, col: int): big;
+	column_text:fn(stmt: ref Stmt, col: int): string;
+	column_blob:fn(stmt: ref Stmt, col: int): array of byte;
 	finalize:fn(stmt: ref Stmt): int;
-	close:fn(stmt: ref Conn): int;
+	close:fn(conn: ref Conn): int;
 };
