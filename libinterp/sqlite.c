@@ -58,9 +58,9 @@ Sqlite_open(void *fp)
 	destroy(r);
 
 	path = strdup(string2c(f->file));
-	release();
+	//release();
 	rc = sqlite3_open(path, &db);
-	acquire();
+	//acquire();
 	free(path);
 	if(rc != 0) {
 		f->ret->t0 = H;
@@ -226,9 +226,9 @@ Sqlite_step(void *fp)
 
 	f = fp;
 	stmt = checktype(f->stmt, TSqlite_Stmt, exBadStmt, 0);
-	release();
+	//release();
 	rc = sqlite3_step(stmt->stmt);
-	acquire();
+	//acquire();
 	*f->ret = rc;
 }
 
@@ -252,9 +252,9 @@ Sqlite_prepare(void *fp)
 	conn = checktype(f->db, TSqlite_Conn, exBadConn, 0);
 	sql = strdup(string2c(f->sql));
 
-	release();
+	//release();
 	rc = sqlite3_prepare_v2(conn->db, sql, -1, &sql3stmt, NULL);
-	acquire();
+	//acquire();
 	free(sql);
 	if(rc != 0) {
 		f->ret->t0 = H;

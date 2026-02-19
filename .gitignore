@@ -1,2 +1,4 @@
 *.dis
+*.sbl
 sqlite/
+*.zip

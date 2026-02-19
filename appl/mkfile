@@ -1,3 +1,18 @@
-sqlconnect.dis: sqlconnect.b
-	limbo sqlconnect.b
+<$ROOT/mkconfig
 
+TARG=sqlite.dis\
+	sqlconnect.dis\
+
+MODULES=
+
+SYSMODULES=\
+	arg.m\
+	bufio.m\
+	draw.m\
+	string.m\
+	sys.m\
+	sqlite.m\
+
+DISBIN=../dis
+
+<$ROOT/mkfiles/mkdis
