@@ -2,3 +2,4 @@
 *.sbl
 sqlite/
 *.zip
+tmp/

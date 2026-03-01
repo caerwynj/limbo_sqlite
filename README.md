@@ -19,3 +19,8 @@ This will copy sqlite3.c to /libinterp and sqlite3.h to the /include folder of t
 
 Then build the Inferno64 emu.
 
+## NOTE
+The sqlite3 turns relative paths into absolute paths for the host system.
+But the patched os_unix.c opens files relative to the Inferno OS namespace.
+So always give the sqlite->open() function absolute paths from within the Inferno OS namespace.
+
