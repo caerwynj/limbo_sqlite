@@ -21,7 +21,7 @@ dev
 
 	ip	ipif6-posix ipaux
 	eia
-#	audio	audio-pulse
+	audio	audio-pulse
 	mem
 
 lib
