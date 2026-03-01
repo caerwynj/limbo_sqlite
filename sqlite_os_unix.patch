@@ -1,0 +1,157 @@
+--- os_unix.c	2026-01-09 13:30:09.000000000 -0500
++++ ../../../os_unix.c	2026-02-12 21:31:23.999388545 -0500
+@@ -95,6 +95,9 @@
+ #include <time.h>
+ #include <sys/time.h>    /* amalgamator: keep */
+ #include <errno.h>
++#ifdef SQLITE_OS_INFERNO
++# include <limits.h>
++#endif
+ #if (!defined(SQLITE_OMIT_WAL) || SQLITE_MAX_MMAP_SIZE>0) \
+   && !defined(SQLITE_WASI)
+ # include <sys/mman.h>
+@@ -211,6 +214,10 @@
+ #   define F_SETLKW 7
+ #  endif
+ # endif
++#elif defined(SQLITE_OS_INFERNO)
++# ifndef SQLITE_DEFAULT_UNIX_VFS
++#  define SQLITE_DEFAULT_UNIX_VFS "inferno"
++# endif
+ #else /* !SQLITE_WASI */
+ # ifndef HAVE_FCHMOD
+ #  define HAVE_FCHMOD 1
+@@ -410,6 +417,80 @@
+   return open(zFile, flags, mode);
+ }
+ 
++#ifdef SQLITE_OS_INFERNO
++#ifndef OREAD
++# define OREAD   0
++#endif
++#ifndef OWRITE
++# define OWRITE  1
++#endif
++#ifndef ORDWR
++# define ORDWR   2
++#endif
++#ifndef OEXEC
++# define OEXEC   3
++#endif
++#ifndef OTRUNC
++# define OTRUNC  16
++#endif
++#ifndef OCEXEC
++# define OCEXEC  32
++#endif
++#ifndef ORCLOSE
++# define ORCLOSE 64
++#endif
++#ifndef OEXCL
++# define OEXCL   0x1000
++#endif
++
++/*
++** Inferno file I/O wrappers.
++**
++** These map SQLite's unix VFS syscalls to libopen/libread/libwrite/libclose
++** as provided by Inferno's emu/port/discall.c.
++*/
++extern int libopen(char *name, int omode);
++extern int libread(int fd, void *buf, int n);
++extern int libwrite(int fd, void *buf, int n);
++extern int libclose(int fd);
++
++static int infernoOpen(const char *zFile, int flags, int mode){
++  int omode = 0;
++  UNUSED_PARAMETER(mode);
++  switch( flags & O_ACCMODE ){
++    case O_WRONLY: omode = OWRITE; break;
++    case O_RDWR:   omode = ORDWR;  break;
++    case O_RDONLY:
++    default:       omode = OREAD;  break;
++  }
++#ifdef O_TRUNC
++  if( flags & O_TRUNC )   omode |= OTRUNC;
++#endif
++#ifdef O_CLOEXEC
++  if( flags & O_CLOEXEC ) omode |= OCEXEC;
++#endif
++#ifdef O_EXCL
++  if( flags & O_EXCL )    omode |= OEXCL;
++#endif
++  /* Inferno open(2) does not create files; ignore O_CREAT here. */
++  return libopen((char *)zFile, omode);
++}
++
++static ssize_t infernoRead(int fd, void *buf, size_t n){
++  if( n>INT_MAX ) n = INT_MAX;
++  return (ssize_t)libread(fd, buf, (int)n);
++}
++
++static ssize_t infernoWrite(int fd, const void *buf, size_t n){
++  if( n>INT_MAX ) n = INT_MAX;
++  return (ssize_t)libwrite(fd, (void *)buf, (int)n);
++}
++
++static int infernoClose(int fd){
++  return libclose(fd);
++}
++#endif
++
+ /* Forward reference */
+ static int openDirectory(const char*, int*);
+ static int unixGetpagesize(void);
+@@ -425,10 +506,18 @@
+   sqlite3_syscall_ptr pCurrent; /* Current value of the system call */
+   sqlite3_syscall_ptr pDefault; /* Default value */
+ } aSyscall[] = {
++#if defined(SQLITE_OS_INFERNO)
++  { "open",         (sqlite3_syscall_ptr)infernoOpen, 0  },
++#else
+   { "open",         (sqlite3_syscall_ptr)posixOpen,  0  },
++#endif
+ #define osOpen      ((int(*)(const char*,int,int))aSyscall[0].pCurrent)
+ 
++#if defined(SQLITE_OS_INFERNO)
++  { "close",        (sqlite3_syscall_ptr)infernoClose, 0 },
++#else
+   { "close",        (sqlite3_syscall_ptr)close,      0  },
++#endif
+ #define osClose     ((int(*)(int))aSyscall[1].pCurrent)
+ 
+   { "access",       (sqlite3_syscall_ptr)access,     0  },
+@@ -460,7 +549,11 @@
+   { "fcntl",        (sqlite3_syscall_ptr)fcntl,      0  },
+ #define osFcntl     ((int(*)(int,int,...))aSyscall[7].pCurrent)
+ 
++#if defined(SQLITE_OS_INFERNO)
++  { "read",         (sqlite3_syscall_ptr)infernoRead, 0  },
++#else
+   { "read",         (sqlite3_syscall_ptr)read,       0  },
++#endif
+ #define osRead      ((ssize_t(*)(int,void*,size_t))aSyscall[8].pCurrent)
+ 
+ #if defined(USE_PREAD) || SQLITE_ENABLE_LOCKING_STYLE
+@@ -477,7 +570,11 @@
+ #endif
+ #define osPread64 ((ssize_t(*)(int,void*,size_t,off64_t))aSyscall[10].pCurrent)
+ 
++#if defined(SQLITE_OS_INFERNO)
++  { "write",        (sqlite3_syscall_ptr)infernoWrite, 0 },
++#else
+   { "write",        (sqlite3_syscall_ptr)write,      0  },
++#endif
+ #define osWrite     ((ssize_t(*)(int,const void*,size_t))aSyscall[11].pCurrent)
+ 
+ #if defined(USE_PREAD) || SQLITE_ENABLE_LOCKING_STYLE
+@@ -8499,6 +8596,9 @@
+   ** array cannot be const.
+   */
+   static sqlite3_vfs aVfs[] = {
++#if defined(SQLITE_OS_INFERNO)
++    UNIXVFS("inferno",       nolockIoFinder ),
++#endif
+ #if SQLITE_ENABLE_LOCKING_STYLE && defined(__APPLE__)
+     UNIXVFS("unix",          autolockIoFinder ),
+ #elif OS_VXWORKS

@@ -25,7 +25,8 @@ init(nil:ref Draw->Context, argv:list of string)
 		exit;
 	}
 
-	(db, rc) = sqlite->open("test.db");
+	(db, rc) = sqlite->open("/test.db");
+	if(db == nil) print("open db is nil\n");
 	print("open %d\n", rc);
 
 	(stmt, rc) = sqlite->prepare(db, "select * from test1");

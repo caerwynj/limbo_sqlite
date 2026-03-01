@@ -11,6 +11,10 @@ include "arg.m";
 include "sqlite.m";
 	sql: Sqlite;
 	Conn, Stmt: import sql;
+include "names.m";
+	names: Names;
+include "workdir.m";
+	workdir: Workdir;
 
 Sqlcli: module {
 	init: fn(ctxt: ref Draw->Context, args: list of string);
@@ -21,18 +25,19 @@ in: ref Iobuf;
 db: ref Conn;
 stderr: ref sys->FD;
 
-init(ctxt: ref Draw->Context, args: list of string)
+init(nil: ref Draw->Context, args: list of string)
 {
 	sys = load Sys Sys->PATH;
 	bufio = load Bufio Bufio->PATH;
 	arg = load Arg Arg->PATH;
 	sql = load Sqlite Sqlite->PATH;
+	names = load Names Names->PATH;
+	workdir = load Workdir Workdir->PATH;	
 	
-	stderr = sys->fildes(2);
 
 	if (sql == nil) {
 		# Try to give a useful error if load fails
-		sys->fprint(stderr, "sqlcli: cannot load %s: %r. Ensure sqlite.dis is available.\n", Sqlite->PATH);
+		sys->print("sqlcli: cannot load %s: %r. Ensure sqlite.dis is available.\n", Sqlite->PATH);
 		raise "fail:load";
 	}
 
@@ -53,12 +58,15 @@ init(ctxt: ref Draw->Context, args: list of string)
 		dbpath = hd args;
 	
 	err: int;
+	if(dbpath != ":memory:")
+		dbpath = names->rooted(workdir->init(), dbpath);
 	(db, err) = sql->open(dbpath);
 	if (db == nil) {
-		sys->fprint(stderr, "sqlcli: cannot open database %s: error %d\n", dbpath, err);
+		sys->print("sqlcli: cannot open database %s: error %d\n", dbpath, err);
 		raise "fail:open";
 	}
 	
+	stderr = sys->fildes(2);
 	out = bufio->fopen(sys->fildes(1), Bufio->OWRITE);
 	in = bufio->fopen(sys->fildes(0), Bufio->OREAD);
 	
@@ -160,7 +168,8 @@ exec(query: string)
 	
 	while ((rc := sql->step(stmt)) == sql->ROW) {
 		if (cols == -1) {
-			cols = count_cols(stmt);
+			#cols = count_cols(stmt);
+			cols = sql->column_count(stmt);
 		}
 		print_row(stmt, cols);
 	}
@@ -170,62 +179,6 @@ exec(query: string)
 	}
 	
 	sql->finalize(stmt);
-}
-
-count_cols(stmt: ref Stmt): int
-{
-	# Heuristic: Probe columns to determine count since interface is missing it
-	# Most queries have few columns. Limit to 100 for sanity.
-	for (i := 0; i < 100; i++) {
-		# Fast path: existing column with bytes > 0
-		if (sql->column_bytes(stmt, i) > 0)
-			continue;
-			
-		# Slow path: probe specifically for existence
-		# This is necessary because column_text/blob crash on OOB
-		if (!probe_safe(stmt, i)) 
-			return i;
-	}
-	return 100;
-}
-
-probe_safe(stmt: ref Stmt, col: int): int
-{
-	fds := array[2] of ref sys->FD;
-	if (sys->pipe(fds) < 0) return 0;
-	
-	sync := chan of int;
-	spawn prober(sync, fds[1], stmt, col);
-	<-sync; # Wait for prober to start
-	
-	buf := array[1] of byte;
-	n := sys->read(fds[0], buf, 1);
-	
-	# Cleanup FDs
-	fds[0] = nil;
-	fds[1] = nil;
-	
-	if (n > 0) return 1;
-	return 0;
-}
-
-prober(sync: chan of int, fd: ref sys->FD, stmt: ref Stmt, col: int)
-{
-	# New Process Group to isolate crashes
-	sys->pctl(sys->NEWPGRP|sys->FORKFD, nil);
-	
-	# Try to suppress stderr to hide "Broken" messages from debug output
-	nullfd := sys->open("/dev/null", sys->OWRITE);
-	if (nullfd != nil)
-		sys->dup(nullfd.fd, 2);
-	
-	sync <-= 1; # Signal start
-	
-	# This line will crash if col is OOB
-	s := sql->column_text(stmt, col);
-	
-	# If we survived, signal success
-	sys->write(fd, array[] of {byte 1}, 1);
 }
 
 print_row(stmt: ref Stmt, cols: int)
